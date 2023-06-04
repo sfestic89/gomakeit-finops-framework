@@ -1,0 +1,162 @@
+query = <<-EOF
+    WITH
+      COST_MONTHLY_DOMAIN AS (
+      SELECT
+        domain,
+        invoice_month,
+        SUM(cost) AS cost
+      FROM (
+        SELECT
+        IF
+          (domain_name IS NULL
+            OR TRIM(domain_name)="", "NO_LABEL", domain_name) AS domain,
+          PARSE_DATE("%Y%m",invoice_month) AS invoice_month,
+          SUM(cost) AS cost
+        FROM
+          `${module.project.project.project_id}.${google_bigquery_dataset.finops_datasets["dashboard_data"].dataset_id}.${google_bigquery_table.billing_view.table_id}` b
+        WHERE
+          PARSE_DATE("%Y%m",invoice_month) <= DATE_TRUNC(CURRENT_DATE(), month)
+        GROUP BY
+          domain,
+          invoice_month)
+      GROUP BY
+        domain,
+        invoice_month ),
+      FORECAST AS (
+      SELECT
+        domain,
+        invoice_month,
+        SUM(cost_predicted) AS cost_predicted
+      FROM (
+        SELECT
+        IF
+          (domain IS NULL
+            OR TRIM(domain)="", "NO_LABEL", domain) AS domain,
+          DATE_TRUNC(EXTRACT(date
+            FROM
+              date), month) AS invoice_month,
+          cost_predicted
+        FROM
+          `${module.project.project.project_id}.${google_bigquery_dataset.finops_datasets["dashboard_data"].dataset_id}.cost_predicted_table`
+        WHERE
+          DATE_TRUNC(date, month) >= DATE_TRUNC(CURRENT_DATE(), month))
+      GROUP BY
+        domain,
+        invoice_month ),
+      BUDGET AS (
+      SELECT
+        domain,
+        invoice_month,
+        SUM(budget_amount) AS budget_amount,
+        budget_year
+      FROM (
+        SELECT
+        IF
+          (domain IS NULL
+            OR TRIM(domain)="", "NO_LABEL", domain) AS domain,
+          PARSE_DATE("%d-%b-%y", date) AS invoice_month,
+          amount AS budget_amount,
+          CASE
+            WHEN EXTRACT(MONTH FROM PARSE_DATE("%d-%b-%y", date)) IN (10, 11, 12) THEN EXTRACT(year FROM PARSE_DATE("%d-%b-%y", date))+1
+          ELSE
+          EXTRACT(year
+          FROM
+            PARSE_DATE("%d-%b-%y", date))
+        END
+          AS budget_year
+        FROM
+          `${module.project.project.project_id}.${google_bigquery_dataset.finops_datasets["dashboard_data"].dataset_id}.${google_bigquery_table.table_budget.table_id}`)
+      GROUP BY
+        domain,
+        invoice_month,
+        budget_year ),
+      BUDGET_YEARLY_DOMAIN AS (
+      SELECT
+        SUM(budget_amount) AS budget_yearly_per_domain,
+        budget_year,
+        domain
+      FROM
+        BUDGET
+      GROUP BY
+        domain,
+        budget_year ),
+      COST_FORECAST_UNION AS (
+      SELECT
+        domain,
+        invoice_month,
+        cost
+      FROM
+        COST_MONTHLY_DOMAIN
+      WHERE
+        invoice_month < DATE_TRUNC(CURRENT_DATE(), month)
+      UNION ALL
+      SELECT
+        domain,
+        invoice_month,
+        cost_predicted
+      FROM
+        FORECAST ),
+      COST_ALL AS (
+      SELECT
+        domain,
+        invoice_month,
+        u.cost,
+        c.cost AS cost_actuals,
+        CASE
+          WHEN DATE_TRUNC(invoice_month, month) = DATE_TRUNC(CURRENT_DATE(), month) THEN (1 + EXTRACT(DAY FROM LAST_DAY(invoice_month)) - EXTRACT(DAY FROM CURRENT_DATE()))/EXTRACT(DAY FROM LAST_DAY(invoice_month)) * u.cost
+          WHEN invoice_month < DATE_TRUNC(CURRENT_DATE(), month) THEN NULL
+        ELSE
+        u.cost
+      END
+        AS cost_predicted,
+        CASE
+          WHEN EXTRACT(MONTH FROM invoice_month) IN (10, 11, 12) THEN EXTRACT(year FROM invoice_month)+1
+        ELSE
+        EXTRACT(year
+        FROM
+          invoice_month)
+      END
+        AS budget_year
+      FROM
+        COST_FORECAST_UNION u
+      LEFT JOIN
+        COST_MONTHLY_DOMAIN c
+      USING
+        (domain,
+          invoice_month)
+      LEFT JOIN
+        FORECAST
+      USING
+        (domain,
+          invoice_month) ),
+      result as (SELECT
+        domain,
+        invoice_month,
+        cost,
+        cost_actuals,
+        cost_predicted,
+        budget_year AS financial_year,
+        budget_amount AS budget_monthly,
+        budget_yearly_per_domain,
+        SUM(cost) OVER (PARTITION BY COST_ALL.budget_year, COST_ALL.domain ORDER BY COST_ALL.invoice_month ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW ) AS total_cost
+      FROM
+        COST_ALL
+      FULL JOIN
+        BUDGET
+      USING
+        (domain,
+          invoice_month,
+          budget_year)
+      LEFT JOIN
+        BUDGET_YEARLY_DOMAIN
+      USING
+        (domain,
+          budget_year)
+      ORDER BY
+        domain,
+        invoice_month)
+    SELECT
+      r.*
+    FROM
+      result r
+    EOF

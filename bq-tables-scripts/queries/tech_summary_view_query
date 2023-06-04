@@ -1,0 +1,19 @@
+query = <<-EOF
+      SELECT
+        ts.execution_time,
+        ts.project_id,
+        pd.project_name,
+        ts.guest_vcpus,
+        ts.reserved_cores,
+        ts.gcs_storage_gb,
+        ts.pubsub_storage_kb,
+        ts.bq_storage_gb,
+        pd.product,
+        pd.domain
+      FROM
+        `${var.monitoring_project_id}.finops_data.technical_summary` AS ts
+      LEFT JOIN
+        `${var.monitoring_project_id}.finops_data.gcp_project_data_view` pd
+      ON
+        ts.project_id = pd.project_id
+  EOF

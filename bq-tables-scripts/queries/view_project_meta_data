@@ -1,0 +1,15 @@
+query = <<-EOF
+    WITH
+      base AS (
+      SELECT
+        *,
+        ROW_NUMBER() OVER(PARTITION BY project_id ORDER BY updated_at DESC) AS row_num
+      FROM
+        `${var.monitoring_project_id}.finops_data.gcp_project_data_view` )
+      SELECT
+      *
+      FROM
+        base
+      WHERE
+        row_num < 2
+    EOF

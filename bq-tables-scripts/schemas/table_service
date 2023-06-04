@@ -1,0 +1,74 @@
+schema = <<-EOF
+  [
+    {
+      "name": "invoice_month",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "invoice_day",
+      "type": "DATE",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "project_id",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "project_name",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "service",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "location",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "cost",
+      "type": "FLOAT",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "credits_amount",
+      "type": "FLOAT",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "is_marketplace",
+      "type": "BOOLEAN",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "financial_year",
+      "type": "INTEGER",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "domain_name",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "product_name",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "environment",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "product_id",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    }
+  ]
+  EOF

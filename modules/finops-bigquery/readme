@@ -1,0 +1,40 @@
+module "bigquery_finops" {
+  source = "./modules/bigquery_datasets"
+
+  project_id = "my-gcp-project"
+
+  datasets = {
+    "datset1" a= {
+      schema_fields = [
+        {
+          name = "id"
+          type = "INTEGER"
+        },
+        {
+          name = "name"
+          type = "STRING"
+        }
+      ]
+      tables = [
+        "table1",
+        "table2"
+      ]
+    },
+    "dataset2" = {
+      schema_fields = [
+        {
+          name = "id"
+          type = "INTEGER"
+        },
+        {
+          name = "email"
+          type = "STRING"
+        }
+      ]
+      tables = [
+        "table3",
+        "table4"
+      ]
+    }
+  }
+}

@@ -1,0 +1,16 @@
+query = <<-EOF
+    SELECT
+      DISTINCT(service.description) AS service
+    FROM
+      `${module.project.project.project_id}.mms_cost_export.cloud_pricing_export`,
+    UNNEST(product_taxonomy) AS pt
+    WHERE
+      pt = "Marketplace Services"
+      AND service.description != "Compute Engine"
+    UNION ALL
+      SELECT
+        "Support"
+    UNION ALL
+      SELECT
+        "Bare Metal Solution"
+    EOF

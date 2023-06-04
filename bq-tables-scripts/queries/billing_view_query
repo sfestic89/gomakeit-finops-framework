@@ -1,0 +1,18 @@
+query = <<-EOF
+      SELECT
+        invoice_month,
+        invoice_day AS export_time,
+        cost + IFNULL(credits_amount, 0) AS cost,
+        cost AS operating_cost,
+        credits_amount AS credits,
+        service,
+        is_marketplace,
+        financial_year,
+        IFNULL(project_id, "NO_PROJECT_ID") AS project_id,
+        IFNULL(project_name, "NO_PROJECT_NAME") AS project_name,
+        IFNULL(product_name, "NO_LABEL") as product_name,
+        IFNULL(domain_name, "NO_LABEL") as domain_name,
+        IFNULL(environment, "NO_LABEL") as environment
+      FROM
+        `${module.project.project.project_id}.${google_bigquery_dataset.finops_datasets["billing_source"].dataset_id}.${google_bigquery_table.table_service.table_id}`
+    EOF

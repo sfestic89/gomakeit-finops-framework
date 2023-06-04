@@ -1,0 +1,94 @@
+query = <<-EOF
+    WITH
+      feature_attributes AS (
+      SELECT
+        DISTINCT DATE_ADD(DATE_TRUNC(export_time, MONTH), INTERVAL 1 MONTH) AS invoice_month,
+        project_id,
+        project_name,
+        service,
+        product_name,
+        domain_name,
+        environment,
+        is_marketplace,
+        0 AS monthly_cost
+      FROM
+        `${module.project.project.project_id}.${google_bigquery_dataset.finops_datasets["dashboard_data"].dataset_id}.${google_bigquery_table.billing_view.table_id}` ),
+      monthly_cost_union AS (
+      SELECT
+        *
+      FROM
+        feature_attributes
+      WHERE
+        invoice_month <= DATE_TRUNC(CURRENT_DATE(), MONTH)
+      UNION ALL
+      SELECT
+        DATE_TRUNC(export_time, MONTH) AS invoice_month,
+        project_id,
+        project_name,
+        service,
+        product_name,
+        domain_name,
+        environment,
+        is_marketplace,
+        SUM(cost) AS monthly_cost
+      FROM
+        `${module.project.project.project_id}.${google_bigquery_dataset.finops_datasets["dashboard_data"].dataset_id}.${google_bigquery_table.billing_view.table_id}`
+      GROUP BY
+        invoice_month,
+        project_id,
+        project_name,
+        service,
+        domain_name,
+        product_name,
+        environment,
+        is_marketplace),
+      aggregate AS (
+      SELECT
+        invoice_month,
+        project_id,
+        project_name,
+        service,
+        product_name,
+        domain_name,
+        environment,
+        is_marketplace,
+        SUM(monthly_cost) AS monthly_cost
+      FROM
+        monthly_cost_union
+      GROUP BY
+        invoice_month,
+        project_id,
+        project_name,
+        service,
+        domain_name,
+        product_name,
+        environment,
+        is_marketplace ),
+      lags AS (
+      SELECT
+        *,
+        LAG(monthly_cost) OVER (PARTITION BY project_id, project_name, service, domain_name, product_name, environment, is_marketplace ORDER BY invoice_month ASC) AS monthly_cost_lag,
+      FROM
+        aggregate ),
+      result AS (
+      SELECT
+        *
+      FROM
+        lags
+      WHERE
+        NOT (monthly_cost = 0
+          AND monthly_cost_lag = 0) )
+      SELECT
+        invoice_month AS export_year_month,
+        project_id,
+        project_name,
+        domain_name,
+        product_name,
+        service,
+        environment,
+        is_marketplace,
+        monthly_cost,
+        monthly_cost_lag
+      FROM
+        result
+    EOF

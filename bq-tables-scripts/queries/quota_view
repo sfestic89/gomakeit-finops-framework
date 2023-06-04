@@ -1,0 +1,77 @@
+query = <<-EOF
+    WITH
+      quota AS (
+      SELECT
+        m.project_id AS project_id,
+        region,
+        metric,
+      IF
+        (domain IS NULL
+          OR domain="", "NO_LABEL", domain) AS domain,
+      IF
+        (product IS NULL
+          OR product="", "NO_LABEL", product) AS product,
+      IFNULL(product_name, "NO_LABEL") as product_name,
+      IFNULL(domain_name, "NO_LABEL") as domain_name,
+      IF (project_name IS NULL
+          OR project_name="", "NO_LABEL", project_name) as project_name,
+        DATE_TRUNC(addedAt, HOUR) AS HOUR,
+        MAX(CASE
+            WHEN mv_type='limit' THEN m_value
+          ELSE
+          NULL
+        END
+          ) AS q_limit,
+        MAX(CASE
+            WHEN mv_type='usage' THEN m_value
+          ELSE
+          NULL
+        END
+          ) AS usage
+      FROM
+        `${module.project.project.project_id}.quota_monitoring_dataset.quota_monitoring_table` m
+      LEFT JOIN
+        `${module.project.project.project_id}.${google_bigquery_dataset.finops_datasets["billing_source"].dataset_id}.${google_bigquery_table.view_project_meta_data.table_id}` DATA
+      ON
+        m.project_id = data.project_id
+      GROUP BY
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9)
+    SELECT
+      project_id,
+      region,
+      metric,
+      domain,
+      product,
+      domain_name,
+      product_name,
+      project_name,
+      HOUR,
+      CASE
+        WHEN q_limit='9223372036854775807' THEN 'unlimited'
+      ELSE
+      q_limit
+    END
+      AS q_limit,
+      usage,
+      ROUND((SAFE_DIVIDE(CAST(t.usage AS BIGNUMERIC), CAST(t.q_limit AS BIGNUMERIC))*100),2) AS consumption
+    FROM (
+      SELECT
+        *,
+        RANK() OVER (PARTITION BY project_id, region, metric ORDER BY HOUR DESC) AS latest_row
+      FROM
+        quota) t
+    WHERE
+      latest_row=1
+      AND usage IS NOT NULL
+      AND q_limit IS NOT NULL
+      AND usage != '0'
+      AND q_limit != '0'
+    EOF

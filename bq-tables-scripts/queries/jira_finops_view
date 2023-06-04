@@ -1,0 +1,1 @@
+SELECT * FROM `${var.monitoring_project_id}.finops_data.jira_finops_view`

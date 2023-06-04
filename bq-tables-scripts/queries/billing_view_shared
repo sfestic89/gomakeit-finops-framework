@@ -1,0 +1,11 @@
+query = <<-EOF
+      SELECT
+        b.export_time AS usage_date,
+        b.project_id,
+        b.service,
+        b.cost,
+        b.credits AS credits_amount,
+        b.is_marketplace
+      FROM
+        `${module.project.project.project_id}.${google_bigquery_dataset.finops_datasets["dashboard_data"].dataset_id}.${google_bigquery_table.billing_view.table_id}` b
+    EOF
